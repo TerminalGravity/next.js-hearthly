@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "docs:generate": "ts-node scripts/generate-db-docs.ts",
+    "docs:serve": "gitbook serve docs",
+    "docs:build": "gitbook build docs",
+    "sync:requirements": "ts-node scripts/sync-requirements.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",

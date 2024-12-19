@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Documentation
+_book/
+node_modules/
+*.pdf
+*.epub
+*.mobi
