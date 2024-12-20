@@ -1,17 +1,24 @@
+"use client";
+
 import { useState } from "react";
-import { Card } from "@tremor/react";
+import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+} from "lucide-react";
+import {
+  format,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  format,
   isSameMonth,
   isSameDay,
   addMonths,
   subMonths,
 } from "date-fns";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
 interface Event {
   id: string;
@@ -26,80 +33,84 @@ interface CalendarViewProps {
 }
 
 export function CalendarView({ events }: CalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const firstDayOfMonth = startOfMonth(currentDate);
-  const lastDayOfMonth = endOfMonth(currentDate);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const days = eachDayOfInterval({
-    start: firstDayOfMonth,
-    end: lastDayOfMonth,
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
   });
 
-  const previousMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
-  };
+  const previousMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
-  const nextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
-  };
-
-  const getDayEvents = (date: Date) => {
-    return events.filter((event) => isSameDay(new Date(event.date), date));
-  };
+  const getEventsForDay = (date: Date) =>
+    events.filter((event) => isSameDay(new Date(event.date), date));
 
   return (
     <Card className="p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">
-          {format(currentDate, "MMMM yyyy")}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <CalendarIcon className="h-5 w-5" />
+          {format(currentMonth, "MMMM yyyy")}
         </h2>
-        <div className="flex gap-2">
-          <Button onClick={previousMonth} variant="outline" size="sm">
-            Previous
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={previousMonth}
+            title="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button onClick={nextMonth} variant="outline" size="sm">
-            Next
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={nextMonth}
+            title="Next month"
+          >
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-px bg-muted">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div
             key={day}
-            className="text-center text-sm font-medium text-muted-foreground"
+            className="p-2 text-center text-sm font-medium text-muted-foreground"
           >
             {day}
           </div>
         ))}
+      </div>
 
-        {Array.from({ length: firstDayOfMonth.getDay() }).map((_, index) => (
-          <div key={`empty-${index}`} className="h-24 rounded-lg border bg-muted/50" />
-        ))}
-
-        {days.map((day) => {
-          const dayEvents = getDayEvents(day);
+      <div className="grid grid-cols-7 gap-px bg-muted">
+        {days.map((day, dayIdx) => {
+          const dayEvents = getEventsForDay(day);
           return (
             <div
-              key={day.toISOString()}
-              className={`h-24 rounded-lg border p-1 ${
-                isSameMonth(day, currentDate)
-                  ? "bg-background"
-                  : "bg-muted/50"
+              key={day.toString()}
+              className={`min-h-[100px] bg-background p-2 ${
+                !isSameMonth(day, currentMonth) ? "text-muted-foreground" : ""
               }`}
             >
-              <div className="text-right text-sm">
+              <time
+                dateTime={format(day, "yyyy-MM-dd")}
+                className="text-sm font-medium"
+              >
                 {format(day, "d")}
-              </div>
+              </time>
               <div className="mt-1 space-y-1">
                 {dayEvents.map((event) => (
                   <Link
                     key={event.id}
                     href={`/events/${event.id}`}
-                    className="block truncate rounded bg-primary/10 px-1 py-0.5 text-xs text-primary hover:bg-primary/20"
+                    className="block"
                   >
-                    {format(new Date(`${event.date}T${event.time}`), "HH:mm")} -{" "}
-                    {event.title}
+                    <div className="text-xs p-1 rounded bg-primary/10 hover:bg-primary/20 transition-colors">
+                      <div className="font-medium truncate">{event.title}</div>
+                      <div className="text-muted-foreground">{event.time}</div>
+                    </div>
                   </Link>
                 ))}
               </div>

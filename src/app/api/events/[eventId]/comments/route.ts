@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { isUserFamilyMember } from "@/lib/auth/permissions";
+import { sendEmail, generateCommentNotificationEmail } from "@/lib/email/email.service";
 
-const createCommentSchema = z.object({
+const commentSchema = z.object({
   content: z.string().min(1, "Comment cannot be empty"),
 });
+
+interface FamilyMember {
+  user: {
+    email: string;
+  };
+}
 
 export async function POST(
   req: Request,
@@ -23,6 +30,21 @@ export async function POST(
 
     const event = await prisma.event.findUnique({
       where: { id: params.eventId },
+      include: {
+        family: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!event) {
@@ -42,7 +64,7 @@ export async function POST(
     }
 
     const body = await req.json();
-    const validatedData = createCommentSchema.parse(body);
+    const validatedData = commentSchema.parse(body);
 
     // Get or create user
     const user = await prisma.user.upsert({
@@ -55,6 +77,7 @@ export async function POST(
       },
     });
 
+    // Create comment
     const comment = await prisma.comment.create({
       data: {
         content: validatedData.content,
@@ -72,8 +95,30 @@ export async function POST(
       },
     });
 
+    // Send email notifications to all family members except the commenter
+    const familyEmails = event.family.members
+      .map((member: FamilyMember) => member.user.email)
+      .filter((email: string) => email !== session.user.email);
+
+    const { subject, html } = generateCommentNotificationEmail(
+      event.title,
+      session.user.name || session.user.email,
+      validatedData.content
+    );
+
+    await Promise.all(
+      familyEmails.map((email: string) =>
+        sendEmail({
+          to: email,
+          subject,
+          html,
+        })
+      )
+    );
+
     return NextResponse.json(comment);
   } catch (error) {
+    console.error("Error handling comment:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.errors },

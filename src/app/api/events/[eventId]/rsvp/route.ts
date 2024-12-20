@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { isUserFamilyMember } from "@/lib/auth/permissions";
+import { sendEmail, generateRsvpNotificationEmail } from "@/lib/email/email.service";
 
 const rsvpSchema = z.object({
   status: z.enum(["YES", "NO", "MAYBE"]),
 });
+
+interface FamilyMember {
+  user: {
+    email: string;
+  };
+}
 
 export async function POST(
   req: Request,
@@ -23,6 +30,21 @@ export async function POST(
 
     const event = await prisma.event.findUnique({
       where: { id: params.eventId },
+      include: {
+        family: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!event) {
@@ -82,8 +104,30 @@ export async function POST(
       },
     });
 
+    // Send email notifications to all family members except the one who RSVP'd
+    const familyEmails = event.family.members
+      .map((member: FamilyMember) => member.user.email)
+      .filter((email: string) => email !== session.user.email);
+
+    const { subject, html } = generateRsvpNotificationEmail(
+      event.title,
+      session.user.name || session.user.email,
+      validatedData.status
+    );
+
+    await Promise.all(
+      familyEmails.map((email: string) =>
+        sendEmail({
+          to: email,
+          subject,
+          html,
+        })
+      )
+    );
+
     return NextResponse.json(rsvp);
   } catch (error) {
+    console.error("Error handling RSVP:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.errors },

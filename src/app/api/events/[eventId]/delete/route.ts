@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { isUserFamilyAdmin } from "@/lib/auth/permissions";
+import { sendEmail, generateEventDeletedEmail } from "@/lib/email/email.service";
+
+interface FamilyMember {
+  user: {
+    email: string;
+  };
+}
 
 export async function POST(
   req: Request,
@@ -18,23 +25,70 @@ export async function POST(
 
     const event = await prisma.event.findUnique({
       where: { id: params.eventId },
+      include: {
+        family: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+            members: {
+              include: {
+                user: {
+                  select: {
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!event) {
       return NextResponse.json(
         { error: "Event not found" },
         { status: 404 }
-      );
-    }
+    // Send email notifications to all family members except the one deleting the event
+    const familyEmails = event.family.members
+      .map((member: FamilyMember) => member.user.email)
+      .filter((email: string) => email !== session.user.email);
 
-    // Check if user is an admin of the family
-    const isAdmin = await isUserFamilyAdmin(event.familyId);
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Only family admins can delete events" },
-        { status: 403 }
-      );
-    }
+    const { subject, html } = generateEventDeletedEmail(
+      event.title,
+      new Date(event.date)
+    );
+
+    await Promise.all([
+      // Delete all RSVPs and comments first
+      prisma.$transaction([
+        prisma.rsvp.deleteMany({
+          where: { eventId: params.eventId },
+        }),
+        prisma.comment.deleteMany({
+          where: { eventId: params.eventId },
+        }),
+        prisma.event.delete({
+          where: { id: params.eventId },
+        }),
+      ]),
+      // Send notifications
+      ...familyEmails.map((email: string) =>
+        sendEmail({
+          to: email,
+          subject,
+          html,
+        })
+      ),
 
     // Delete all RSVPs and comments first
     await prisma.$transaction([
