@@ -3,17 +3,28 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CalendarView } from "@/components/events/calendar-view";
-import { format } from "date-fns";
+import { routes } from "@/lib/routes";
+import { Event } from "@/types/events";
+import {
+  formatEventDate,
+  getEventHost,
+  getEventSummary,
+} from "@/lib/utils/event.utils";
+import { notFound } from "next/navigation";
 
 export default async function EventsPage() {
   const user = await getCurrentUser();
+
+  if (!user) {
+    notFound();
+  }
 
   const events = await prisma.event.findMany({
     where: {
       family: {
         members: {
           some: {
-            userId: user?.id,
+            userId: user.id,
           },
         },
       },
@@ -28,7 +39,7 @@ export default async function EventsPage() {
       family: true,
       rsvps: {
         where: {
-          userId: user?.id,
+          userId: user.id,
         },
       },
     },
@@ -43,7 +54,7 @@ export default async function EventsPage() {
             View and manage your family events
           </p>
         </div>
-        <Link href="/events/new">
+        <Link href={routes.events.new}>
           <Button>Create Event</Button>
         </Link>
       </div>
@@ -56,6 +67,7 @@ export default async function EventsPage() {
             date: event.date,
             time: event.time,
             host: event.host,
+            familyId: event.familyId,
           }))}
         />
 
@@ -74,24 +86,23 @@ export default async function EventsPage() {
                 >
                   <div className="space-y-1">
                     <Link
-                      href={`/events/${event.id}`}
+                      href={routes.events.detail(event.id)}
                       className="text-lg font-medium hover:underline"
                     >
                       {event.title}
                     </Link>
                     <div className="text-sm text-muted-foreground">
-                      {format(new Date(event.date), "EEEE, MMMM d, yyyy")} at{" "}
-                      {event.time}
+                      {getEventSummary(event)}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      Hosted by {event.host}
+                      {getEventHost(event)}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-sm">
                       {event.rsvps[0]?.status || "Not responded"}
                     </div>
-                    <Link href={`/events/${event.id}`}>
+                    <Link href={routes.events.detail(event.id)}>
                       <Button variant="outline" size="sm">
                         View Details
                       </Button>

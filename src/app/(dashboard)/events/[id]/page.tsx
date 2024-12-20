@@ -3,9 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { RsvpButton } from "@/components/events/rsvp-button";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
 import Link from "next/link";
 import { isUserFamilyAdmin } from "@/lib/auth/permissions";
+import { routes } from "@/lib/routes";
+import {
+  formatEventDate,
+  groupRsvpsByStatus,
+  getEventHost,
+} from "@/lib/utils/event.utils";
 
 interface EventPageProps {
   params: {
@@ -15,6 +20,11 @@ interface EventPageProps {
 
 export default async function EventPage({ params }: EventPageProps) {
   const user = await getCurrentUser();
+  
+  if (!user) {
+    notFound();
+  }
+
   const eventId = params.id;
 
   const event = await prisma.event.findUnique({
@@ -37,7 +47,7 @@ export default async function EventPage({ params }: EventPageProps) {
   const membership = await prisma.familyMember.findFirst({
     where: {
       familyId: event.familyId,
-      userId: user?.id,
+      userId: user.id,
     },
   });
 
@@ -49,20 +59,10 @@ export default async function EventPage({ params }: EventPageProps) {
   const isAdmin = await isUserFamilyAdmin(event.familyId);
 
   // Get current user's RSVP
-  const userRsvp = event.rsvps.find((rsvp) => rsvp.userId === user?.id);
+  const userRsvp = event.rsvps.find((rsvp) => rsvp.userId === user.id);
 
   // Group RSVPs by status
-  const rsvpGroups = event.rsvps.reduce(
-    (acc, rsvp) => {
-      acc[rsvp.status].push(rsvp);
-      return acc;
-    },
-    {
-      YES: [],
-      NO: [],
-      MAYBE: [],
-    } as Record<string, typeof event.rsvps>
-  );
+  const rsvpGroups = groupRsvpsByStatus(event.rsvps);
 
   return (
     <div className="space-y-8">
@@ -70,12 +70,12 @@ export default async function EventPage({ params }: EventPageProps) {
         <div>
           <h1 className="text-3xl font-bold">{event.title}</h1>
           <p className="mt-2 text-muted-foreground">
-            Hosted by {event.host}
+            {getEventHost(event)}
           </p>
         </div>
         {isAdmin && (
           <div className="flex gap-4">
-            <Link href={`/events/${event.id}/edit`}>
+            <Link href={routes.events.edit(event.id)}>
               <Button variant="outline">Edit Event</Button>
             </Link>
             <form action={`/api/events/${event.id}/delete`}>
@@ -94,7 +94,7 @@ export default async function EventPage({ params }: EventPageProps) {
             <dl className="mt-4 space-y-2">
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Date</dt>
-                <dd>{format(new Date(event.date), "EEEE, MMMM d, yyyy")}</dd>
+                <dd>{formatEventDate(event.date)}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Time</dt>

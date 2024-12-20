@@ -6,16 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
+import { Event } from "@/types/events";
+import { validateEventData } from "@/lib/utils/event.utils";
+import { routes } from "@/lib/routes";
 
 interface EditEventFormProps {
-  event: {
-    id: string;
-    title: string;
-    host: string;
-    date: Date;
-    time: string;
-    description?: string | null;
-  };
+  event: Event;
 }
 
 export function EditEventForm({ event }: EditEventFormProps) {
@@ -37,6 +33,14 @@ export function EditEventForm({ event }: EditEventFormProps) {
       description: formData.get("description") as string,
     };
 
+    // Validate form data
+    const validationErrors = validateEventData(data);
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(", "));
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/events/${event.id}`, {
         method: "PUT",
@@ -47,11 +51,11 @@ export function EditEventForm({ event }: EditEventFormProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update event");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update event");
       }
 
-      router.push(`/events/${event.id}`);
+      router.push(routes.events.detail(event.id));
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Something went wrong");
@@ -104,6 +108,7 @@ export function EditEventForm({ event }: EditEventFormProps) {
           name="date"
           defaultValue={format(new Date(event.date), "yyyy-MM-dd")}
           required
+          min={format(new Date(), "yyyy-MM-dd")}
         />
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { routes } from "@/lib/routes";
 
 interface Event {
   id: string;
@@ -26,41 +27,35 @@ interface EventListProps {
 export default function EventList({ familyId }: EventListProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    async function fetchEvents() {
+      try {
+        const response = await fetch(`/api/families/${familyId}/events`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch events");
+        }
+
+        setEvents(data);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Failed to fetch events");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     fetchEvents();
   }, [familyId]);
 
-  const fetchEvents = async () => {
-    try {
-      const response = await fetch(`/api/events?familyId=${familyId}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch events");
-      }
-
-      setEvents(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load events");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div
-            key={i}
-            className="animate-pulse bg-white rounded-lg shadow-sm p-6"
-          >
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          </div>
-        ))}
+      <div className="animate-pulse space-y-4">
+        <div className="h-24 bg-gray-200 rounded"></div>
+        <div className="h-24 bg-gray-200 rounded"></div>
+        <div className="h-24 bg-gray-200 rounded"></div>
       </div>
     );
   }
@@ -68,7 +63,7 @@ export default function EventList({ familyId }: EventListProps) {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-500">{error}</p>
       </div>
     );
   }
@@ -86,7 +81,7 @@ export default function EventList({ familyId }: EventListProps) {
       {events.map((event) => (
         <Link
           key={event.id}
-          href={`/dashboard/families/${familyId}/events/${event.id}`}
+          href={routes.events.detail(event.id)}
           className="block"
         >
           <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">

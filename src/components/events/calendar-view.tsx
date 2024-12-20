@@ -10,7 +10,6 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 import {
-  format,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -19,14 +18,9 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
-
-interface Event {
-  id: string;
-  title: string;
-  date: Date;
-  time: string;
-  host: string;
-}
+import { routes } from "@/lib/routes";
+import { Event } from "@/types/events";
+import { formatEventDateShort } from "@/lib/utils/event.utils";
 
 interface CalendarViewProps {
   events: Event[];
@@ -51,7 +45,7 @@ export function CalendarView({ events }: CalendarViewProps) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <CalendarIcon className="h-5 w-5" />
-          {format(currentMonth, "MMMM yyyy")}
+          {formatEventDateShort(currentMonth)}
         </h2>
         <div className="flex items-center gap-2">
           <Button
@@ -95,16 +89,16 @@ export function CalendarView({ events }: CalendarViewProps) {
               }`}
             >
               <time
-                dateTime={format(day, "yyyy-MM-dd")}
+                dateTime={formatEventDateShort(day)}
                 className="text-sm font-medium"
               >
-                {format(day, "d")}
+                {day.getDate()}
               </time>
               <div className="mt-1 space-y-1">
                 {dayEvents.map((event) => (
                   <Link
                     key={event.id}
-                    href={`/events/${event.id}`}
+                    href={routes.events.detail(event.id)}
                     className="block"
                   >
                     <div className="text-xs p-1 rounded bg-primary/10 hover:bg-primary/20 transition-colors">
