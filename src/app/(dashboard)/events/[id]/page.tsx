@@ -2,6 +2,10 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { RsvpButton } from "@/components/events/rsvp-button";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import Link from "next/link";
+import { isUserFamilyAdmin } from "@/lib/auth/permissions";
 
 interface EventPageProps {
   params: {
@@ -41,6 +45,9 @@ export default async function EventPage({ params }: EventPageProps) {
     notFound();
   }
 
+  // Check if user is admin
+  const isAdmin = await isUserFamilyAdmin(event.familyId);
+
   // Get current user's RSVP
   const userRsvp = event.rsvps.find((rsvp) => rsvp.userId === user?.id);
 
@@ -59,11 +66,25 @@ export default async function EventPage({ params }: EventPageProps) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">{event.title}</h1>
-        <p className="mt-2 text-muted-foreground">
-          Hosted by {event.host}
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">{event.title}</h1>
+          <p className="mt-2 text-muted-foreground">
+            Hosted by {event.host}
+          </p>
+        </div>
+        {isAdmin && (
+          <div className="flex gap-4">
+            <Link href={`/events/${event.id}/edit`}>
+              <Button variant="outline">Edit Event</Button>
+            </Link>
+            <form action={`/api/events/${event.id}/delete`}>
+              <Button variant="destructive" type="submit">
+                Delete Event
+              </Button>
+            </form>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
@@ -73,7 +94,7 @@ export default async function EventPage({ params }: EventPageProps) {
             <dl className="mt-4 space-y-2">
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Date</dt>
-                <dd>{new Date(event.date).toLocaleDateString()}</dd>
+                <dd>{format(new Date(event.date), "EEEE, MMMM d, yyyy")}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Time</dt>
