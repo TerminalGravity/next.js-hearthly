@@ -9,9 +9,10 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user }) {
       // On sign-in, create or update user in DB
       // TODO: Implement user creation/update logic
+      if (!user?.email) return false;
       return true;
     },
   },
