@@ -4,8 +4,8 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { isUserFamilyMember } from "@/lib/auth/permissions";
 
-const rsvpSchema = z.object({
-  status: z.enum(["YES", "NO", "MAYBE"]),
+const createCommentSchema = z.object({
+  content: z.string().min(1, "Comment cannot be empty"),
 });
 
 export async function POST(
@@ -36,13 +36,13 @@ export async function POST(
     const isMember = await isUserFamilyMember(event.familyId);
     if (!isMember) {
       return NextResponse.json(
-        { error: "You must be a family member to RSVP" },
+        { error: "You must be a family member to comment" },
         { status: 403 }
       );
     }
 
     const body = await req.json();
-    const validatedData = rsvpSchema.parse(body);
+    const validatedData = createCommentSchema.parse(body);
 
     // Get or create user
     const user = await prisma.user.upsert({
@@ -55,21 +55,11 @@ export async function POST(
       },
     });
 
-    // Create or update RSVP
-    const rsvp = await prisma.rsvp.upsert({
-      where: {
-        eventId_userId: {
-          eventId: params.eventId,
-          userId: user.id,
-        },
-      },
-      update: {
-        status: validatedData.status,
-      },
-      create: {
+    const comment = await prisma.comment.create({
+      data: {
+        content: validatedData.content,
         eventId: params.eventId,
         userId: user.id,
-        status: validatedData.status,
       },
       include: {
         user: {
@@ -82,7 +72,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json(rsvp);
+    return NextResponse.json(comment);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -125,12 +115,12 @@ export async function GET(
     const isMember = await isUserFamilyMember(event.familyId);
     if (!isMember) {
       return NextResponse.json(
-        { error: "You must be a family member to view RSVPs" },
+        { error: "You must be a family member to view comments" },
         { status: 403 }
       );
     }
 
-    const rsvps = await prisma.rsvp.findMany({
+    const comments = await prisma.comment.findMany({
       where: {
         eventId: params.eventId,
       },
@@ -143,9 +133,12 @@ export async function GET(
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    return NextResponse.json(rsvps);
+    return NextResponse.json(comments);
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error" },

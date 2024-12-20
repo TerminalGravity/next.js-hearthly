@@ -43,6 +43,7 @@ model User {
   subscriptions   Subscription[]
   purchaseHistory PurchaseHistory[]
   adminOfFamilies Family[]         @relation("FamilyAdmin")
+  comments        Comment[]
 
   @@index([email])
 }
@@ -90,6 +91,7 @@ model Event {
   family      Family   @relation(fields: [familyId], references: [id])
   rsvps       Rsvp[]
   photos      Photo[]
+  comments    Comment[]
 
   @@index([familyId])
   @@index([date])
@@ -211,4 +213,18 @@ model Invitation {
   @@index([token])
   @@index([familyId])
   @@index([email])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([eventId])
+  @@index([userId])
 }
