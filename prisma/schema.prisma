@@ -178,8 +178,8 @@ model AffiliateLink {
   affiliateUrl String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  recipe      Recipe?  @relation("RecipeAffiliateLink", fields: [itemId], references: [id], map: "AffiliateLink_recipe_fkey")
-  game        Game?    @relation("GameAffiliateLink", fields: [itemId], references: [id], map: "AffiliateLink_game_fkey")
+  recipe      Recipe?  @relation("RecipeAffiliateLink", fields: [itemId], references: [id], onDelete: Cascade, map: "AffiliateLink_recipe_fkey")
+  game        Game?    @relation("GameAffiliateLink", fields: [itemId], references: [id], onDelete: Cascade, map: "AffiliateLink_game_fkey")
 
   @@index([itemType, itemId])
 }
