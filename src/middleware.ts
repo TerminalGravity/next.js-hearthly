@@ -3,29 +3,8 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    const token = req.nextauth.token;
-    const isAuth = !!token;
-    const isAuthPage =
-      req.nextUrl.pathname.startsWith("/login") ||
-      req.nextUrl.pathname.startsWith("/signup");
-
-    if (isAuthPage) {
-      if (isAuth) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-      return null;
-    }
-
-    if (!isAuth) {
-      let from = req.nextUrl.pathname;
-      if (req.nextUrl.search) {
-        from += req.nextUrl.search;
-      }
-
-      return NextResponse.redirect(
-        new URL(`/login?from=${encodeURIComponent(from)}`, req.url)
-      );
-    }
+    // Add custom middleware logic here if needed
+    return NextResponse.next();
   },
   {
     callbacks: {
@@ -34,12 +13,11 @@ export default withAuth(
   }
 );
 
+// Protect all routes under /dashboard and /api (except auth endpoints)
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/family/:path*",
-    "/events/:path*",
-    "/login",
-    "/signup",
+    "/api/:path*",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
   ],
 }; 
