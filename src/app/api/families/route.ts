@@ -1,59 +1,63 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth/session";
-import { Role } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import prisma from "@/lib/prisma";
+import { z } from "zod";
+
+const createFamilySchema = z.object({
+  familyName: z.string().min(1, "Family name is required"),
+});
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const session = await getServerSession();
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { message: "Unauthorized" },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const { familyName } = await req.json();
+    const body = await req.json();
+    const validatedData = createFamilySchema.parse(body);
 
-    if (!familyName) {
+    // Get or create user
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: {},
+      create: {
+        email: session.user.email,
+        name: session.user.name || "",
+        hashedPassword: "", // We don't need this for OAuth
+      },
+    });
+
+    // Create family with the current user as admin
+    const family = await prisma.family.create({
+      data: {
+        familyName: validatedData.familyName,
+        adminUserId: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "ADMIN",
+          },
+        },
+      },
+      include: {
+        members: true,
+      },
+    });
+
+    return NextResponse.json(family);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { message: "Family name is required" },
+        { error: error.errors },
         { status: 400 }
       );
     }
-
-    const family = await prisma.$transaction(async (tx) => {
-      // Create the family
-      const family = await tx.family.create({
-        data: {
-          familyName,
-          adminUserId: user.id,
-        },
-      });
-
-      // Add the creator as an admin member
-      await tx.familyMember.create({
-        data: {
-          familyId: family.id,
-          userId: user.id,
-          role: Role.ADMIN,
-        },
-      });
-
-      return family;
-    });
-
     return NextResponse.json(
-      {
-        message: "Family created successfully",
-        family,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Create family error:", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

@@ -196,3 +196,19 @@ model PurchaseHistory {
   @@index([userId])
   @@index([itemType, itemId])
 }
+
+model Invitation {
+  id        String   @id @default(cuid())
+  familyId  String
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  family    Family   @relation(fields: [familyId], references: [id])
+
+  @@unique([familyId, email])
+  @@index([token])
+  @@index([familyId])
+  @@index([email])
+}
